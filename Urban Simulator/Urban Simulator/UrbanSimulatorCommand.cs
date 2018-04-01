@@ -41,7 +41,7 @@ namespace Urban_Simulator
 
 
             getPrecinct(TheUrbanModel);                 //ask user to select surface representing precinct
-            //generateRoadNetwork()            // Using precinct generate road network
+            generateRoadNetwork(TheUrbanModel);           // Using precinct generate road network
             //createBlocks()                   // Using road network generates blocks
             //subdivideBlocks()                 // subdivide block into plots
             //instantiateBulidings               // place bulidings on plots
@@ -50,7 +50,7 @@ namespace Urban_Simulator
             return Result.Success;
         }
 
-            public bool getPrecinct(UrbanModel model )
+        public bool getPrecinct(UrbanModel model)
         {
 
             GetObject obj = new GetObject();
@@ -63,14 +63,47 @@ namespace Urban_Simulator
                 return false;
 
             if (obj.ObjectCount == 1)
-            
+
                 model.PrecinctSrf = obj.Object(0).Surface();
 
-         
+
 
 
             return true;
 
         }
+    
+    
+        public bool generateRoadNetwork(UrbanModel model)
+
+        {
+            //extract edges from the precinct- temp geometry
+           Curve[] borderCrvs = model.PrecinctSrf.ToBrep().DuplicateNakedEdgeCurves(true, false);
+            if(borderCrvs.Length > 0)
+            { int noBorders = borderCrvs.Length;
+                Random rnd = new Random();
+               Curve theCrv = borderCrvs [rnd.Next(noBorders)];
+
+
+                //select a random point from one of the edges
+              Point3d pt =   theCrv.PointAtNormalizedLength(0.5);
+                RhinoDoc.ActiveDoc.Objects.AddPoint(pt);
+                RhinoDoc.ActiveDoc.Views.Redraw();
+
+
+
+
+            }
+
+
+            //select a random point from one of the edges
+            // draw a line perpindicular
+            // collect and repeat the process (select random point and draw perp line) 
+            //
+            return true;
+
+
+        }
+
     }
 }
