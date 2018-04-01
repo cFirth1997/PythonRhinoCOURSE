@@ -53,6 +53,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="UrbanModel.cs" />
     <Compile Include="UrbanSimulatorCommand.cs" />
     <Compile Include="UrbanSimulatorPlugIn.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

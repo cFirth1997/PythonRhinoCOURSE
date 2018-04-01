@@ -32,15 +32,45 @@ namespace Urban_Simulator
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
-            
-            RhinoApp.WriteLine("The {0} command will add a line right now.", EnglishName);
 
-           
-            RhinoApp.WriteLine("The {0} command added one line to the document.", EnglishName);
+            RhinoApp.WriteLine("The Urban Simulator has begun.");
 
-            // ---
+            UrbanModel TheUrbanModel = new UrbanModel();
 
+
+
+
+            getPrecinct(TheUrbanModel);                 //ask user to select surface representing precinct
+            //generateRoadNetwork()            // Using precinct generate road network
+            //createBlocks()                   // Using road network generates blocks
+            //subdivideBlocks()                 // subdivide block into plots
+            //instantiateBulidings               // place bulidings on plots
+
+            RhinoApp.WriteLine("The Urban Simulator is complete.");
             return Result.Success;
+        }
+
+            public bool getPrecinct(UrbanModel model )
+        {
+
+            GetObject obj = new GetObject();
+            obj.GeometryFilter = Rhino.DocObjects.ObjectType.Surface;
+            obj.SetCommandPrompt("Please set surface for precinct");
+
+            GetResult res = obj.Get();
+
+            if (res != GetResult.Object)
+                return false;
+
+            if (obj.ObjectCount == 1)
+            
+                model.PrecinctSrf = obj.Object(0).Surface();
+
+         
+
+
+            return true;
+
         }
     }
 }
