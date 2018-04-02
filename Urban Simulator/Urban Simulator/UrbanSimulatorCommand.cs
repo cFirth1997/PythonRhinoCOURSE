@@ -48,8 +48,8 @@ namespace Urban_Simulator
             createBlocks(TheUrbanModel);                                // Using road network generates blocks
 
            if (!subdivideBlocks(TheUrbanModel, 30, 20));                    // subdivide block into plots
-            return Result.Failure; 
-            //instantiateBulidings                                   // place bulidings on plots
+            return Result.Failure;
+
 
             RhinoApp.WriteLine("The Urban Simulator is complete.");
 
@@ -83,7 +83,7 @@ namespace Urban_Simulator
           public bool generateRoadNetwork(UrbanModel model)
 
         {
-            int noIterations = 5;
+            int noIterations = 6;
 
             Random RndRoadT = new Random();
             List<Curve> obstCrvs = new List<Curve>();
@@ -160,16 +160,18 @@ namespace Urban_Simulator
 
 
         public bool createBlocks(UrbanModel model)
-        { 
-
+        {
+            Random blockType = Random();
         Brep precinctPolySrf =    model.PrecinctSrf.ToBrep().Faces[0].Split(model.roadNetworks,RhinoDoc.ActiveDoc.ModelAbsoluteTolerance);
 
-            List<Brep> blocks = new List<Brep>();
+            List<block> blocks = new List<block>();
 
             foreach(BrepFace itBF in precinctPolySrf.Faces)
             { Brep ItBlock = itBF.DuplicateFace(false);
                 ItBlock.Faces.ShrinkFaces();
-                    blocks.Add(ItBlock);
+                int theBlockType = blockType.Next(5);
+
+                    blocks.Add(new block (ItBlock, theBlockType))   ;
                 RhinoDoc.ActiveDoc.Objects.AddBrep(ItBlock);
                     }
             if (blocks.Count > 0)
@@ -187,20 +189,23 @@ namespace Urban_Simulator
 
         public bool subdivideBlocks(UrbanModel model, int minPlotDepth, int maxPlotWidth)
         {
-            model.plot = new List<Brep>();
-            foreach (Brep itBlock in model.blocks)
+            
+            foreach (block itBlock in model.blocks)
             {
-                Curve[] borderCrvs = itBlock.DuplicateNakedEdgeCurves(true, false);
+                
+                Brep itSrf = itBlock.blockSrf;
+                itBlock.plot = new List<Brep>();
+                Curve[] borderCrvs = itSrf.DuplicateNakedEdgeCurves(true, false);
 
                 List<Curve> splitLines = new List<Curve>();
 
-                itBlock.Faces[0].SetDomain(0, new Interval(0, 1));
-                itBlock.Faces[0].SetDomain(1, new Interval(0, 1));
+                itSrf.Faces[0].SetDomain(0, new Interval(0, 1));
+                iitSrf.Faces[0].SetDomain(1, new Interval(0, 1));
 
-                Point3d pt1 = itBlock.Faces[0].PointAt(0, 0);
-                Point3d pt2 = itBlock.Faces[0].PointAt(0, 1);
-                Point3d pt3 = itBlock.Faces[0].PointAt(1, 1);
-                Point3d pt4 = itBlock.Faces[0].PointAt(1, 0);
+                Point3d pt1 = itSrf.Faces[0].PointAt(0, 0);
+                Point3d pt2 = itSrf.Faces[0].PointAt(0, 1);
+                Point3d pt3 = itSrf.Faces[0].PointAt(1, 1);
+                Point3d pt4 = itSrf.Faces[0].PointAt(1, 0);
 
                 
 
@@ -214,8 +219,8 @@ namespace Urban_Simulator
                 {
                     if (width > (minPlotDepth * 2))
                     {
-                       sdPt1 = itBlock.Surfaces[0].PointAt(0.5, 0);
-                        sdPt2 = itBlock.Surfaces[0].PointAt(0.5, 1);
+                       sdPt1 = itSrf.Surfaces[0].PointAt(0.5, 0);
+                        sdPt2 = itSrf.Surfaces[0].PointAt(0.5, 1);
 
 
 
@@ -224,8 +229,8 @@ namespace Urban_Simulator
                     {
                         if (length > (minPlotDepth * 2))
                         {
-                           sdPt1 = itBlock.Surfaces[0].PointAt(0, 0.5);
-                            sdPt2 = itBlock.Surfaces[0].PointAt(1, 0.5);
+                           sdPt1 = itSrf.Surfaces[0].PointAt(0, 0.5);
+                            sdPt2 = itSrf.Surfaces[0].PointAt(1, 0.5);
 
 
 
@@ -269,7 +274,7 @@ namespace Urban_Simulator
 
                     }
 
-                    Brep plotPolySrf = itBlock.Faces[0].Split(splitLines, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance);
+                    Brep plotPolySrf = itSrf.Faces[0].Split(splitLines, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance);
 
                     
 
@@ -277,7 +282,7 @@ namespace Urban_Simulator
                     {
                         Brep itPlot = itBF.DuplicateFace(false);
                         itPlot.Faces.ShrinkFaces();
-                        model.plot.Add(itPlot );
+                        itBlock.plot.Add(itPlot );
                         RhinoDoc.ActiveDoc.Objects.AddBrep(itPlot);
                     }
                   
@@ -301,6 +306,8 @@ namespace Urban_Simulator
         
        }
 
-        
+    
+
+
     }
 }
