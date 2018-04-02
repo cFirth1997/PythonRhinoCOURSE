@@ -47,7 +47,7 @@ namespace Urban_Simulator
             return Result.Failure;
             createBlocks(TheUrbanModel);                                // Using road network generates blocks
 
-           if (!subdivideBlocks(TheUrbanModel, 30, 15));                    // subdivide block into plots
+           if (!subdivideBlocks(TheUrbanModel, 30, 20));                    // subdivide block into plots
             return Result.Failure; 
             //instantiateBulidings                                   // place bulidings on plots
 
@@ -78,10 +78,12 @@ namespace Urban_Simulator
             
 
         }
+
+
           public bool generateRoadNetwork(UrbanModel model)
 
         {
-            int noIterations = 4;
+            int noIterations = 5;
 
             Random RndRoadT = new Random();
             List<Curve> obstCrvs = new List<Curve>();
@@ -118,6 +120,8 @@ namespace Urban_Simulator
 
 
         }
+        
+
           public bool recursivePerpLine(Curve inpCrv,  ref    List<Curve> inpObst, Random inpRnd, int dir, int cnt)
 
  { if (cnt < 1)
@@ -183,8 +187,10 @@ namespace Urban_Simulator
 
         public bool subdivideBlocks(UrbanModel model, int minPlotDepth, int maxPlotWidth)
         {
+            model.plot = new List<Brep>();
             foreach (Brep itBlock in model.blocks)
             {
+                Curve[] borderCrvs = itBlock.DuplicateNakedEdgeCurves(true, false);
 
                 List<Curve> splitLines = new List<Curve>();
 
@@ -201,48 +207,91 @@ namespace Urban_Simulator
                 double length = pt1.DistanceTo(pt2);
                 double width = pt1.DistanceTo(pt4);
 
+                Point3d sdPt1 = new Point3d();
+                Point3d sdPt2 = new Point3d();
+
                 if (length > width)
-                { if (width > (minPlotDepth * 2))
+                {
+                    if (width > (minPlotDepth * 2))
                     {
-                        Point3d sdPt1 = itBlock.Surfaces[0].PointAt(0.5, 0);
-                        Point3d sdPt2 = itBlock.Surfaces[0].PointAt(0.5, 1);
+                       sdPt1 = itBlock.Surfaces[0].PointAt(0.5, 0);
+                        sdPt2 = itBlock.Surfaces[0].PointAt(0.5, 1);
 
-                        Line subDline = new Line(sdPt1, sdPt2);
-                        Curve subDCrv = subDline.ToNurbsCurve();
 
-                        splitLines.Add(subDCrv);
-
-                        RhinoDoc.ActiveDoc.Objects.AddLine(sdPt1, sdPt2);
-                        RhinoDoc.ActiveDoc.Views.Redraw();
-                    }
 
                     }
-                else
+                    else
                     {
                         if (length > (minPlotDepth * 2))
                         {
-                            Point3d sdPt1 = itBlock.Surfaces[0].PointAt(0, 0.5);
-                            Point3d sdPt2 = itBlock.Surfaces[0].PointAt(1, 0.5);
+                           sdPt1 = itBlock.Surfaces[0].PointAt(0, 0.5);
+                            sdPt2 = itBlock.Surfaces[0].PointAt(1, 0.5);
 
-                            Line subDline = new Line(sdPt1, sdPt2);
-                        Curve subDCrv = subDline.ToNurbsCurve();
 
-                        splitLines.Add(subDCrv);
-
-                            RhinoDoc.ActiveDoc.Objects.AddLine(sdPt1, sdPt2);
-                            RhinoDoc.ActiveDoc.Views.Redraw();
 
                         }
-                  }
+                    }
+                    Line subDline = new Line(sdPt1, sdPt2);
+                    Curve subDCrv = subDline.ToNurbsCurve();
 
-                //check the dimensions 
-                //find the shorter dimensions
-                //validate if should be subdivide
-                //if so subdidivde half way
-                //hten si=ubdivide into smaller plots based on minim plot width
+                    splitLines.Add(subDCrv);
+
+                    double crvLength = subDCrv.GetLength();
+                    double noPlots = Math.Floor(crvLength / maxPlotWidth);
+
+                    for(int t= 0; t < noPlots; t ++)
+                    {
+                       double    tVal = t* 1 / noPlots;
+                        Plane PerpFrm;
+
+                        Point3d evalPt = subDCrv.PointAtNormalizedLength(tVal);
+
+                        subDCrv.PerpendicularFrameAt(tVal, out PerpFrm);
+
+                        Point3d ptPer2Up = Point3d.Add(evalPt, PerpFrm.XAxis);
+                        Point3d ptPer2Down = Point3d.Add(evalPt, PerpFrm.XAxis);
+
+                        // draw a line perpindicular
+                        Line ln1 = new Line(evalPt, ptPer2Up);
+                        Line ln2 = new Line(evalPt, ptPer2Down);
 
 
-            }
+                        Curve lnExt1 = ln1.ToNurbsCurve().ExtendByLine(CurveEnd.End, borderCrvs);
+
+                        Curve lnExt2 = ln2.ToNurbsCurve().ExtendByLine(CurveEnd.End, borderCrvs);
+
+                        splitLines.Add(lnExt1);
+                        splitLines.Add(lnExt2);
+
+
+
+
+
+                    }
+
+                    Brep plotPolySrf = itBlock.Faces[0].Split(splitLines, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance);
+
+                    
+
+                    foreach (BrepFace itBF in plotPolySrf.Faces)
+                    {
+                        Brep itPlot = itBF.DuplicateFace(false);
+                        itPlot.Faces.ShrinkFaces();
+                        model.plot.Add(itPlot );
+                        RhinoDoc.ActiveDoc.Objects.AddBrep(itPlot);
+                    }
+                  
+                    
+                    RhinoDoc.ActiveDoc.Views.Redraw();
+                }
+                    //check the dimensions 
+                    //find the shorter dimensions
+                    //validate if should be subdivide
+                    //if so subdidivde half way
+                    //hten si=ubdivide into smaller plots based on minim plot width
+
+
+                }
         
         
         
