@@ -40,17 +40,25 @@ namespace Urban_Simulator
 
 
 
-            getPrecinct(TheUrbanModel);                 //ask user to select surface representing precinct
-            generateRoadNetwork(TheUrbanModel);           // Using precinct generate road network
-            //createBlocks()                   // Using road network generates blocks
-            //subdivideBlocks()                 // subdivide block into plots
-            //instantiateBulidings               // place bulidings on plots
+           if (!getPrecinct(TheUrbanModel));                          //ask user to select surface representing precinct
+            return Result.Failure;
+
+           if (! generateRoadNetwork(TheUrbanModel));                   // Using precinct generate road network
+            return Result.Failure;
+            createBlocks(TheUrbanModel);                                // Using road network generates blocks
+
+           if (!subdivideBlocks(TheUrbanModel, 30, 15));                    // subdivide block into plots
+            return Result.Failure; 
+            //instantiateBulidings                                   // place bulidings on plots
 
             RhinoApp.WriteLine("The Urban Simulator is complete.");
+
+            RhinoDoc.ActiveDoc.Views.Redraw();
+
             return Result.Success;
         }
 
-        public bool getPrecinct(UrbanModel model)
+          public bool getPrecinct(UrbanModel model)
         {
 
             GetObject obj = new GetObject();
@@ -58,31 +66,28 @@ namespace Urban_Simulator
             obj.SetCommandPrompt("Please set surface for precinct");
 
             GetResult res = obj.Get();
-
-            if (res != GetResult.Object)
+            
+                if (res != GetResult.Object)
+            { RhinoApp.WriteLine("User failed to select surface");
                 return false;
-
-            if (obj.ObjectCount == 1)
-
-                model.PrecinctSrf = obj.Object(0).Surface();
-
-
-
-
-            return true;
+            }
+            
+                if (obj.ObjectCount == 1)
+                    model.PrecinctSrf = obj.Object(0).Surface();
+                return true;
+            
 
         }
-    
-    
-        public bool generateRoadNetwork(UrbanModel model)
+          public bool generateRoadNetwork(UrbanModel model)
 
         {
-            int noIterations = 1;
+            int noIterations = 4;
 
-            List<Curve> obstCrvs = new List<CurveEnd>(); 
+            Random RndRoadT = new Random();
+            List<Curve> obstCrvs = new List<Curve>();
 
             //extract edges from the precinct- temp geometry
-           Curve[] borderCrvs = model.PrecinctSrf.ToBrep().DuplicateNakedEdgeCurves(true, false);
+            Curve[] borderCrvs = model.PrecinctSrf.ToBrep().DuplicateNakedEdgeCurves(true, false);
 
             foreach (Curve itCrv in borderCrvs)
                 obstCrvs.Add(itCrv);
@@ -93,54 +98,34 @@ namespace Urban_Simulator
             { int noBorders = borderCrvs.Length;
                 Random rnd = new Random();
                Curve theCrv = borderCrvs [rnd.Next(noBorders)];
+                
+
+                recursivePerpLine(theCrv,ref  obstCrvs, RndRoadT, 1, noIterations);
 
 
-                //select a random point from one of the edges
-                double t = new Random().NextDouble();
-                Plane PerpFrm;
-
-
-
-              Point3d pt =   theCrv.PointAtNormalizedLength(t);
-                theCrv.PerpendicularFrameAt(t, out PerpFrm);
-
-                Point3d pt2 = Point3d.Add(pt, PerpFrm.XAxis);
-
-                // draw a line perpindicular
-                Line ln = new Line(pt, pt2);
-                Curve lnExt = ln.ToNurbsCurve().ExtendByLine(CurveEnd.End, borderCrvs);
-
-                obstCrvs.Add(lnExt);
-
-                recursivePerpLine(theCrv,ref     obstCrvs,1,  2);
-
-
-                // draw a line perpindicular
 
             }
 
 
+            model.roadNetworks = obstCrvs;
+            if (obstCrvs.Count > borderCrvs.Length)
+                return true;
 
-            // draw a line perpindicular
-            // collect and repeat the process (select random point and draw perp line) 
-            //
-            return true;
+            else
+                return false;
+
+
 
 
         }
-        public bool recursivePerpLine(Curve inpCrv,  ref    List<Curve> inpObst, int dir, int cnt)
+          public bool recursivePerpLine(Curve inpCrv,  ref    List<Curve> inpObst, Random inpRnd, int dir, int cnt)
 
-
-        {
-
-            if (cnt < 1)
+ { if (cnt < 1)
                 return false;
 
             //select a random point from one of the edges
-            double t = new Random().NextDouble();
+            double t = inpRnd.Next(30,70) / 100.0;
             Plane PerpFrm;
-
-
 
             Point3d pt = inpCrv.PointAtNormalizedLength(t);
             inpCrv.PerpendicularFrameAt(t, out PerpFrm);
@@ -161,12 +146,112 @@ namespace Urban_Simulator
             RhinoDoc.ActiveDoc.Objects.AddPoint(pt);
             RhinoDoc.ActiveDoc.Views.Redraw();
 
-            recursivePerpLine(lnExt, ref inpObst, 1, cnt - 1);
-            recursivePerpLine(lnExt, ref inpObst, -1, cnt - 1);
+            recursivePerpLine(lnExt, ref inpObst,inpRnd, 1, cnt - 1);
+            recursivePerpLine(lnExt, ref inpObst, inpRnd, -1, cnt - 1);
 
             return true;
 
         }
 
+
+
+        public bool createBlocks(UrbanModel model)
+        { 
+
+        Brep precinctPolySrf =    model.PrecinctSrf.ToBrep().Faces[0].Split(model.roadNetworks,RhinoDoc.ActiveDoc.ModelAbsoluteTolerance);
+
+            List<Brep> blocks = new List<Brep>();
+
+            foreach(BrepFace itBF in precinctPolySrf.Faces)
+            { Brep ItBlock = itBF.DuplicateFace(false);
+                ItBlock.Faces.ShrinkFaces();
+                    blocks.Add(ItBlock);
+                RhinoDoc.ActiveDoc.Objects.AddBrep(ItBlock);
+                    }
+            if (blocks.Count > 0)
+            {
+                model.blocks = blocks;
+                return true;
+            }
+
+           else {
+                return false;
+            }
+
+        }
+
+
+        public bool subdivideBlocks(UrbanModel model, int minPlotDepth, int maxPlotWidth)
+        {
+            foreach (Brep itBlock in model.blocks)
+            {
+
+                List<Curve> splitLines = new List<Curve>();
+
+                itBlock.Faces[0].SetDomain(0, new Interval(0, 1));
+                itBlock.Faces[0].SetDomain(1, new Interval(0, 1));
+
+                Point3d pt1 = itBlock.Faces[0].PointAt(0, 0);
+                Point3d pt2 = itBlock.Faces[0].PointAt(0, 1);
+                Point3d pt3 = itBlock.Faces[0].PointAt(1, 1);
+                Point3d pt4 = itBlock.Faces[0].PointAt(1, 0);
+
+                
+
+                double length = pt1.DistanceTo(pt2);
+                double width = pt1.DistanceTo(pt4);
+
+                if (length > width)
+                { if (width > (minPlotDepth * 2))
+                    {
+                        Point3d sdPt1 = itBlock.Surfaces[0].PointAt(0.5, 0);
+                        Point3d sdPt2 = itBlock.Surfaces[0].PointAt(0.5, 1);
+
+                        Line subDline = new Line(sdPt1, sdPt2);
+                        Curve subDCrv = subDline.ToNurbsCurve();
+
+                        splitLines.Add(subDCrv);
+
+                        RhinoDoc.ActiveDoc.Objects.AddLine(sdPt1, sdPt2);
+                        RhinoDoc.ActiveDoc.Views.Redraw();
+                    }
+
+                    }
+                else
+                    {
+                        if (length > (minPlotDepth * 2))
+                        {
+                            Point3d sdPt1 = itBlock.Surfaces[0].PointAt(0, 0.5);
+                            Point3d sdPt2 = itBlock.Surfaces[0].PointAt(1, 0.5);
+
+                            Line subDline = new Line(sdPt1, sdPt2);
+                        Curve subDCrv = subDline.ToNurbsCurve();
+
+                        splitLines.Add(subDCrv);
+
+                            RhinoDoc.ActiveDoc.Objects.AddLine(sdPt1, sdPt2);
+                            RhinoDoc.ActiveDoc.Views.Redraw();
+
+                        }
+                  }
+
+                //check the dimensions 
+                //find the shorter dimensions
+                //validate if should be subdivide
+                //if so subdidivde half way
+                //hten si=ubdivide into smaller plots based on minim plot width
+
+
+            }
+        
+        
+        
+        
+        
+        return true;
+        
+       }
+
+        
     }
 }
