@@ -32,7 +32,7 @@ namespace Urban_Simulator
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
-
+            RhinoDoc.ActiveDoc.Views.RedrawEnabled = false;
             RhinoApp.WriteLine("The Urban Simulator has begun.");
 
             UrbanModel TheUrbanModel = new UrbanModel();
@@ -50,9 +50,10 @@ namespace Urban_Simulator
            if (!subdivideBlocks(TheUrbanModel, 30, 20));                    // subdivide block into plots
             return Result.Failure;
 
+            RhinoDoc.ActiveDoc.Views.RedrawEnabled = true;
 
             RhinoApp.WriteLine("The Urban Simulator is complete.");
-
+            
             RhinoDoc.ActiveDoc.Views.Redraw();
 
             return Result.Success;
@@ -169,7 +170,7 @@ namespace Urban_Simulator
             foreach(BrepFace itBF in precinctPolySrf.Faces)
             { Brep ItBlock = itBF.DuplicateFace(false);
                 ItBlock.Faces.ShrinkFaces();
-                int theBlockType = blockType.Next(5);
+                int theBlockType = blockType.Next(4);
 
                     blocks.Add(new block (ItBlock, theBlockType))   ;
                 RhinoDoc.ActiveDoc.Objects.AddBrep(ItBlock);
@@ -194,7 +195,7 @@ namespace Urban_Simulator
             {
                 
                 Brep itSrf = itBlock.blockSrf;
-                itBlock.plot = new List<Brep>();
+                itBlock.plot = new List<plot>();
                 Curve[] borderCrvs = itSrf.DuplicateNakedEdgeCurves(true, false);
 
                 List<Curve> splitLines = new List<Curve>();
@@ -282,7 +283,7 @@ namespace Urban_Simulator
                     {
                         Brep itPlot = itBF.DuplicateFace(false);
                         itPlot.Faces.ShrinkFaces();
-                        itBlock.plot.Add(itPlot );
+                        itBlock.plot.Add( new plot (itPlot, itBlock.type) );
                         RhinoDoc.ActiveDoc.Objects.AddBrep(itPlot);
                     }
                   

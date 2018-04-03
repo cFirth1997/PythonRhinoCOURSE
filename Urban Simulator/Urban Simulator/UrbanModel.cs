@@ -54,6 +54,10 @@ namespace Urban_Simulator
         {
             Random bldHeights = new Random();
 
+            if (this.plotSrf.GetArea() < 50)
+             return false;
+            
+
             if (inpPlotType > 0)
             {
                 int minBldHeight = 0;
@@ -62,32 +66,54 @@ namespace Urban_Simulator
 
                 if (inpPlotType == 1)
                 {
-                    int minBldHeight = 3;
-                    int maxBldHeight = 6;
+                    minBldHeight = 3;
+                    maxBldHeight = 9;
                 }
 
                 if (inpPlotType == 2)
                 {
-                    int minBldHeight = 9;
-                    int maxBldHeight = 18;
+                    minBldHeight = 18;
+                    maxBldHeight = 30;
                 }
 
                 if (inpPlotType == 3)
                 {
-                    int minBldHeight = 24;
-                    int maxBldHeight = 60;
+                     minBldHeight = 60;
+                     maxBldHeight = 150;
                 }
+
+                double actualBulidingHeight = this.bldHeights.Next(minBldHeight, maxBldHeight);
+
+                System.Drawing.Color bldCol = System.Drawing.Color.White;   
+
+                if (actualBulidingHeight < 6);
+                bldCol = System.Drawing.Color.FromArgb(168, 126, 198);
+                else if (actualBulidingHeight <12)
+                    bldCol = System.Drawing.Color.FromArgb(255, 173, 194);
+                else if (actualBulidingHeight < 36)
+                    bldCol = System.Drawing.Color.FromArgb(243, 104, 75);
+                else if (actualBulidingHeight <92)
+                    bldCol = System.Drawing.Color.FromArgb(225, 164, 24);
+                else if (actualBulidingHeight <120)
+                    bldCol = System.Drawing.Color.FromArgb(254, 255, 51);
+
+
+                ObjectAttributes  oa = new ObjectAttributes
+                    oa.ColorSource = ObjectColorSource.ColorFromObjects;
+                    oa.ObjectColor = System.Drawing.Color.FromArgb() 
+
+
                 Curve border = Curve.JoinCurves(this.plotSrf.DuplicateNakedEdgeCurves(true, false))[0];
                 this.bulidingOutlines = Curve.JoinCurves(border.Offset(Plane.WorldXY, -5, RhinoDoc.ActiveDoc.ModelAbsoluteTolerance, CurveOffsetCornerStyle.None))[0];
 
 
 
-                this.buliding = Extrusion.Create(this.bulidingOutlines, bldHeights.Next(minBldHeight, maxBldHeight), true);
-                RhinoDoc.ActiveDoc.Objects.AddExtrusion(this.buliding);
+                this.buliding = Extrusion.Create(this.bulidingOutlines, actualBulidingHeight, true);
+                RhinoDoc.ActiveDoc.Objects.AddExtrusion(this.buliding, oa);
                 RhinoDoc.ActiveDoc.Objects.AddCurve(bulidingOutlines);
             }
-        
 
+            return true;
     }
                 
 
@@ -96,5 +122,5 @@ namespace Urban_Simulator
             
         
     }
-    }
-}  
+
+  
